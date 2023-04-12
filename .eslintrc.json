@@ -4,12 +4,19 @@
         "commonjs": true,
         "es2021": true
     },
-    "extends": "xo",
+    "extends": "airbnb-base",
     "overrides": [
     ],
     "parserOptions": {
         "ecmaVersion": "latest"
     },
     "rules": {
+        "no-console": "off",
+        "no-underscore-dangle": "off",
+        "linebreak-style": 0,
+        "quotes": [
+            "error",
+            "double"
+        ]
     }
 }
