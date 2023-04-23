@@ -25,7 +25,7 @@ class SongsService {
     return result.rows[0].id;
   }
 
-  async getSongs({ title, performer }) {
+  async getSongs(title = "", performer = "") {
     let text = "SELECT id, title, performer FROM songs";
     const values = [];
 
@@ -62,7 +62,6 @@ class SongsService {
     try {
       resultSongs = await this._pool.query(querySongs);
     } catch (e) {
-      console.error(e);
       resultSongs = [];
     }
     return resultSongs.rows;
@@ -73,13 +72,13 @@ class SongsService {
       text: "SELECT * FROM songs WHERE id = $1",
       values: [id],
     };
-    const result = await this._pool.query(query);
+    const { rows, rowCount } = await this._pool.query(query);
 
-    if (!result.rowCount) {
+    if (!rowCount) {
       throw new NotFoundError("Song tidak ditemukan");
     }
 
-    return result.rows[0];
+    return rows[0];
   }
 
   async editSongById(id, {

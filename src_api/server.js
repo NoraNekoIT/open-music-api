@@ -3,6 +3,10 @@ require("dotenv").config();
 const Hapi = require("@hapi/hapi");
 const Jwt = require("@hapi/jwt");
 
+const Inert = require("@hapi/inert");
+
+const path = require("path");
+
 const albums = require("./api/albums");
 const songs = require("./api/songs");
 const users = require("./api/users");
@@ -10,6 +14,7 @@ const authentications = require("./api/authentications");
 const playlists = require("./api/playlists");
 const collaborations = require("./api/collaborations");
 const playlistSongActivities = require("./api/playlistSongActivities");
+const albumLikes = require("./api/albumLikes");
 
 const AlbumsService = require("./services/postgres/AlbumsService");
 const SongsService = require("./services/postgres/SongsService");
@@ -18,6 +23,11 @@ const AuthenticationsService = require("./services/postgres/AuthenticationServic
 const PlaylistsService = require("./services/postgres/PlaylistsService");
 const CollaborationsService = require("./services/postgres/CollaborationsService");
 const PlaylistSongActivitiesService = require("./services/postgres/PlaylistSongActivitiesService");
+const ProducerService = require("./services/rabbitmq/ProducerService");
+const StorageService = require("./services/storage/StorageService");
+const AlbumLikesService = require("./services/postgres/AlbumLikeService");
+// cache
+const CacheService = require("./services/redis/CacheService");
 
 const SongsValidator = require("./validator/songs");
 const AlbumsValidator = require("./validator/albums");
@@ -25,11 +35,15 @@ const UsersValidator = require("./validator/users");
 const AuthenticationsValidator = require("./validator/authentications");
 const PlaylistsValidator = require("./validator/playlists");
 const CollaborationsValidator = require("./validator/collaborations");
+const ExportsValidator = require("./validator/exports");
 
 const ClientError = require("./exceptions/ClientError");
 const TokenManager = require("./tokenize/TokenManager");
 
+const _exports = require("./api/exports");
+
 const init = async () => {
+  const cacheService = new CacheService();
   const songsService = new SongsService();
   const albumsService = new AlbumsService(songsService);
   const usersService = new UsersService();
@@ -37,6 +51,9 @@ const init = async () => {
   const collaborationsService = new CollaborationsService();
   const playlistsService = new PlaylistsService(collaborationsService);
   const playlistSongActivitiesService = new PlaylistSongActivitiesService();
+  const storageService = new StorageService(path.resolve(__dirname, "api/albums/file/images"));
+  const albumLikesService = new AlbumLikesService(cacheService);
+
   const server = Hapi.server({
     port: process.env.PORT,
     host: process.env.HOST,
@@ -51,6 +68,9 @@ const init = async () => {
   await server.register([
     {
       plugin: Jwt,
+    },
+    {
+      plugin: Inert,
     },
   ]);
 
@@ -76,6 +96,7 @@ const init = async () => {
       plugin: albums,
       options: {
         service: albumsService,
+        storageService,
         validator: AlbumsValidator,
       },
     },
@@ -120,10 +141,25 @@ const init = async () => {
       },
     },
     {
+      plugin: _exports,
+      options: {
+        service: ProducerService,
+        playlistsService,
+        validator: ExportsValidator,
+      },
+    },
+    {
       plugin: playlistSongActivities,
       options: {
         playlistSongActivitiesService,
         playlistsService,
+      },
+    },
+    {
+      plugin: albumLikes,
+      options: {
+        service: albumLikesService,
+        albumsService,
       },
     },
   ]);
